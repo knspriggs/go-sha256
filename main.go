@@ -3,7 +3,6 @@ package main
 import (
 	//"encoding/hex"
 	"fmt"
-	"strings"
 )
 
 const (
@@ -45,27 +44,27 @@ func rightRotate(b []uint32, x int) [8]uint32 {
 
 // break the message into chunks
 func preprocessing(message string) []uint32 {
-	msg_s := strings.Split(message, "")
-	var msg []uint32
-	for c := range msg_s {
-		msg = append(msg, uint32(c))
+	msg_s := []byte(message)
+	msg := []uint32{}
+	for _, c := range msg_s {
+		v := byte(c)
+		msg = append(msg, uint32(v))
 	}
-	msg_len := len(msg)
+	msg_len := uint32(len(msg))
 	msg = append(msg, one)
 
-	for (len(msg) % 64) < 56 {
+	num_0 := (64 - len(msg)%64) - 1
+
+	for i := 0; i < num_0; i++ {
 		msg = append(msg, zero)
 	}
-	for i := uint(0); i < 8; i++ {
-		msg = append(msg, uint32(msg_len>>(56-8*i)))
-	}
+	msg = append(msg, msg_len)
 	fmt.Printf("%v  -  %v\n", msg, len(msg))
 	return msg
 }
 
-func delegateChunks(message []uint32) {
+func delegateChunks(message []uint32) []uint32 {
 	num_chunks := len(message) / 64
-	//comm := make([]chan bool, num_chunks)
 	hashValueArray = make([]chan uint32, 8)
 	for i := 0; i < 8; i++ {
 		hashValueArray[i] = make(chan uint32, 10)
@@ -73,6 +72,7 @@ func delegateChunks(message []uint32) {
 	for i := 0; i < num_chunks; i++ {
 		go processChunk(message[i*64:64+i*64], i)
 	}
+	return combineValues()
 }
 
 // process each chunk
@@ -127,14 +127,6 @@ func processChunk(chunk []uint32, n int) {
 	hashValueArray[7] <- uint32(h)
 }
 
-/*func sum(channel chan int) byte {
-	res := 0
-	for val := range channel {
-		res += val
-	}
-	return byte(res)
-}*/
-
 func combineValues() []uint32 {
 	res := [8]uint32{0, 0, 0, 0, 0, 0, 0, 0}
 	var result []uint32
@@ -152,12 +144,11 @@ func combineValues() []uint32 {
 func main() {
 	fmt.Println("----Start----")
 
-	toHash := "this"
+	toHash := "this is a super long string that needs to break my program into using two seperate chunks for better testing, make sense?"
 	fmt.Println("In length: ", len(toHash))
 	msg := preprocessing(toHash)
-	delegateChunks(msg)
+	result := delegateChunks(msg)
 
-	result := combineValues()
 	fmt.Printf("%x\n", result)
 	//fmt.Println(hex.EncodeToString(result[0]))
 }
