@@ -1,7 +1,6 @@
 package main
 
 import (
-	//"encoding/hex"
 	"fmt"
 )
 
@@ -19,6 +18,7 @@ const (
 )
 
 var hashValueArray []chan uint32
+var comm chan bool
 
 var k = [64]uint32{
 	0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -65,12 +65,19 @@ func preprocessing(message string) []uint32 {
 
 func delegateChunks(message []uint32) []uint32 {
 	num_chunks := len(message) / 64
+	comm = make(chan bool, num_chunks)
 	hashValueArray = make([]chan uint32, 8)
 	for i := 0; i < 8; i++ {
 		hashValueArray[i] = make(chan uint32, 10)
 	}
 	for i := 0; i < num_chunks; i++ {
 		go processChunk(message[i*64:64+i*64], i)
+	}
+	for i := 0; i < num_chunks; i++ {
+		<-comm
+	}
+	for i := 0; i < 8; i++ {
+		close(hashValueArray[i])
 	}
 	return combineValues()
 }
@@ -125,15 +132,20 @@ func processChunk(chunk []uint32, n int) {
 	hashValueArray[5] <- uint32(f)
 	hashValueArray[6] <- uint32(g)
 	hashValueArray[7] <- uint32(h)
+	comm <- true
 }
 
 func combineValues() []uint32 {
 	res := [8]uint32{0, 0, 0, 0, 0, 0, 0, 0}
 	var result []uint32
 	for i := 0; i < 8; i++ {
+		fmt.Println("(", i, ") Chan len: ", len(hashValueArray[i]))
 		for v := range hashValueArray[i] {
+			fmt.Println(v)
 			res[i] += v //<-hashValueArray[i]
 		}
+		fmt.Println("-------")
+		fmt.Println(res[i])
 	}
 	for i := 0; i < 8; i++ {
 		result = append(result, res[i])
