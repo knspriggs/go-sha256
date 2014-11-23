@@ -70,12 +70,18 @@ func delegateChunks(message []uint32) []uint32 {
 	for i := 0; i < 8; i++ {
 		hashValueArray[i] = make(chan uint32, 10)
 	}
+
+	//go and process each chunk concurrently
 	for i := 0; i < num_chunks; i++ {
 		go processChunk(message[i*64:64+i*64], i)
 	}
+
+	//wait for both chunks processing functions to finish
 	for i := 0; i < num_chunks; i++ {
 		<-comm
 	}
+
+	//close the channels
 	for i := 0; i < 8; i++ {
 		close(hashValueArray[i])
 	}
@@ -123,6 +129,7 @@ func processChunk(chunk []uint32, n int) {
 		b = a
 		a = int(temp1) + temp2
 	}
+
 	fmt.Printf("Adding values to channels for chunk %d\n", n)
 	hashValueArray[0] <- uint32(a)
 	hashValueArray[1] <- uint32(b)
@@ -142,7 +149,7 @@ func combineValues() []uint32 {
 		fmt.Println("(", i, ") Chan len: ", len(hashValueArray[i]))
 		for v := range hashValueArray[i] {
 			fmt.Println(v)
-			res[i] += v //<-hashValueArray[i]
+			res[i] += uint32(v) //<-hashValueArray[i]
 		}
 		fmt.Println("-------")
 		fmt.Println(res[i])
@@ -156,11 +163,11 @@ func combineValues() []uint32 {
 func main() {
 	fmt.Println("----Start----")
 
-	toHash := "this is a super long string that needs to break my program into using two seperate chunks for better testing, make sense?"
+	//toHash := "this is a super long string that needs to break my program into using two seperate chunks for better testing, make sense?"
+	toHash := ""
 	fmt.Println("In length: ", len(toHash))
 	msg := preprocessing(toHash)
 	result := delegateChunks(msg)
 
 	fmt.Printf("%x\n", result)
-	//fmt.Println(hex.EncodeToString(result[0]))
 }
