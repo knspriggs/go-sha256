@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 )
 
 const (
@@ -17,6 +18,8 @@ const (
 	one  = 0x1
 )
 
+var initValues [8]uint32
+
 var hashValueArray []chan uint32
 var comm chan bool
 
@@ -31,26 +34,13 @@ var k = [64]uint32{
 	0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 }
 
-func rightRotate(b []uint32, x int) [8]uint32 {
-	len := len(b)
-	fmt.Println(len)
-	var tmp [8]uint32
-	for i := 0; i < len; i++ {
-		fmt.Printf("%d: %d -> %d: %d", i, b[i], i, b[(i+x)%len])
-		tmp[i] = b[(i+x)%len]
+// create message array
+func preprocessing(message string) []byte {
+	msg := []byte{}
+	for _, c := range message {
+		msg = append(msg, byte(c))
 	}
-	return tmp
-}
-
-// break the message into chunks
-func preprocessing(message string) []uint32 {
-	msg_s := []byte(message)
-	msg := []uint32{}
-	for _, c := range msg_s {
-		v := byte(c)
-		msg = append(msg, uint32(v))
-	}
-	msg_len := uint32(len(msg))
+	msg_len := byte(len(msg))
 	msg = append(msg, one)
 
 	num_0 := (64 - len(msg)%64) - 1
@@ -59,11 +49,10 @@ func preprocessing(message string) []uint32 {
 		msg = append(msg, zero)
 	}
 	msg = append(msg, msg_len)
-	fmt.Printf("%v  -  %v\n", msg, len(msg))
 	return msg
 }
 
-func delegateChunks(message []uint32) []uint32 {
+func delegateChunks(message []byte) []uint32 {
 	num_chunks := len(message) / 64
 	comm = make(chan bool, num_chunks)
 	hashValueArray = make([]chan uint32, 8)
@@ -76,7 +65,7 @@ func delegateChunks(message []uint32) []uint32 {
 		go processChunk(message[i*64:64+i*64], i)
 	}
 
-	//wait for both chunks processing functions to finish
+	//wait for all chunk processing functions to finish
 	for i := 0; i < num_chunks; i++ {
 		<-comm
 	}
@@ -89,56 +78,51 @@ func delegateChunks(message []uint32) []uint32 {
 }
 
 // process each chunk
-func processChunk(chunk []uint32, n int) {
-	fmt.Printf("Working on chunk %d\n", n)
-	fmt.Printf("Chunk data: %v\n", chunk)
+func processChunk(chunk []byte, n int) {
 	var w [64]uint32
 	for i := 0; i < 16; i++ {
-		w[i] = chunk[i]
+		w[i] = uint32(chunk[i])
 	}
 
 	for i := 16; i < 64; i++ {
-		s0 := (w[i-15] >> 7) ^ (w[i-15] >> 18) ^ (w[i-15] >> 3)
-		s1 := (w[i-2] >> 17) ^ (w[i-2] >> 19) ^ (w[i-2] >> 10)
-		w[i] = w[i-16] + s0 + w[i-7] + s1
+		v1 := w[i-2]
+		t1 := (v1>>17 | v1<<(32-17)) ^ (v1>>19 | v1<<(32-19)) ^ (v1 >> 10)
+		v2 := w[i-15]
+		t2 := (v2>>7 | v2<<(32-7)) ^ (v2>>18 | v2<<(32-18)) ^ (v2 >> 3)
+		w[i] = t1 + w[i-7] + t2 + w[i-16]
 	}
 
-	a := h0
-	b := h1
-	c := h2
-	d := h3
-	e := h4
-	f := h5
-	g := h6
-	h := h7
+	a := initValues[0]
+	b := initValues[1]
+	c := initValues[2]
+	d := initValues[3]
+	e := initValues[4]
+	f := initValues[5]
+	g := initValues[6]
+	h := initValues[7]
 
 	for i := 0; i < 64; i++ {
-		s1 := (e >> 6) ^ (e >> 11) ^ (e >> 25)
-		ch := (e & f) ^ (g &^ e)
-		temp1 := uint32(h) + uint32(s1) + uint32(ch) + k[i] + uint32(w[i])
-		s0 := (a >> 2) ^ (a >> 13) ^ (a >> 22)
-		maj := (a & b) ^ (a & c) ^ (b & c)
-		temp2 := s0 + maj
+		s0 := h + ((e>>6 | e<<(32-6)) ^ (e>>11 | e<<(32-11)) ^ (e>>25 | e<<(32-25))) + ((e & f) ^ (^e & g)) + k[i] + w[i]
+		s1 := ((a>>2 | a<<(32-2)) ^ (a>>13 | a<<(32-13)) ^ (a>>22 | a<<(32-22))) + ((a & b) ^ (a & c) ^ (b & c))
 
 		h = g
 		g = f
 		f = e
-		e = d + int(temp1)
+		e = d + s0
 		d = c
 		c = b
 		b = a
-		a = int(temp1) + temp2
+		a = s0 + s1
 	}
 
-	fmt.Printf("Adding values to channels for chunk %d\n", n)
-	hashValueArray[0] <- uint32(a)
-	hashValueArray[1] <- uint32(b)
-	hashValueArray[2] <- uint32(c)
-	hashValueArray[3] <- uint32(d)
-	hashValueArray[4] <- uint32(e)
-	hashValueArray[5] <- uint32(f)
-	hashValueArray[6] <- uint32(g)
-	hashValueArray[7] <- uint32(h)
+	hashValueArray[0] <- a
+	hashValueArray[1] <- b
+	hashValueArray[2] <- c
+	hashValueArray[3] <- d
+	hashValueArray[4] <- e
+	hashValueArray[5] <- f
+	hashValueArray[6] <- g
+	hashValueArray[7] <- h
 	comm <- true
 }
 
@@ -146,13 +130,9 @@ func combineValues() []uint32 {
 	res := [8]uint32{0, 0, 0, 0, 0, 0, 0, 0}
 	var result []uint32
 	for i := 0; i < 8; i++ {
-		fmt.Println("(", i, ") Chan len: ", len(hashValueArray[i]))
 		for v := range hashValueArray[i] {
-			fmt.Println(v)
-			res[i] += uint32(v) //<-hashValueArray[i]
+			res[i] += v
 		}
-		fmt.Println("-------")
-		fmt.Println(res[i])
 	}
 	for i := 0; i < 8; i++ {
 		result = append(result, res[i])
@@ -160,14 +140,31 @@ func combineValues() []uint32 {
 	return result
 }
 
-func main() {
-	fmt.Println("----Start----")
+func setup() {
+	initValues[0], initValues[1], initValues[2], initValues[3], initValues[4], initValues[5], initValues[6], initValues[7] = h0, h1, h2, h3, h4, h5, h6, h7
+}
 
+func Hash(msg string) []uint32 {
+	setup()
+	msg_p := preprocessing(msg)
+	return delegateChunks(msg_p)
+}
+
+func PrintHash(ar []uint32) {
+	for i := 0; i < len(ar); i++ {
+		fmt.Printf("%x", ar[i])
+	}
+	fmt.Printf("\n")
+}
+
+func main() {
 	//toHash := "this is a super long string that needs to break my program into using two seperate chunks for better testing, make sense?"
 	toHash := ""
-	fmt.Println("In length: ", len(toHash))
-	msg := preprocessing(toHash)
-	result := delegateChunks(msg)
 
-	fmt.Printf("%x\n", result)
+	start := time.Now()
+	result := Hash(toHash)
+	elapsed := time.Since(start)
+
+	PrintHash(result)
+	fmt.Println("took ", elapsed)
 }
