@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"time"
 )
@@ -37,23 +39,18 @@ var k = [64]uint32{
 
 // create message array
 func preprocessing(msg []byte) []byte {
+	msg_len := uint64(len(msg))
+	msg = append(msg, 0x80)
 
-	msg_len := len(msg) * BYTE_SIZE
-	len := uint64(len(msg))
-
-	//msg_len := byte(len(msg))
-	msg = append(msg, (0x80 >> 7))
-
-	for i := msg_len; i%CHUNK_SIZE != SIZE_BEFORE_LENGTH; i += BYTE_SIZE {
+	for len(msg)%64 < 56 {
 		msg = append(msg, 0x00)
 	}
 
-	len <<= 3
-	for i := uint(0); i < 8; i++ {
-		msg = append(msg, byte(len>>(56-8*i)))
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, msg_len)
+	for _, b := range buf.Bytes() {
+		msg = append(msg, b)
 	}
-
-	fmt.Printf("Msg: %x\n", msg)
 	return msg
 }
 
@@ -153,6 +150,11 @@ func setup() {
 func Hash(msg string) []uint32 {
 	setup()
 	msg_p := preprocessing([]byte(msg))
+	fmt.Println("")
+	for i := 0; i < len(msg_p); i++ {
+		fmt.Printf("%x", msg_p[i])
+	}
+	fmt.Println("")
 	return delegateChunks(msg_p)
 }
 
