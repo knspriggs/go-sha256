@@ -6,16 +6,17 @@ import (
 )
 
 const (
-	h0   = 0x6a09e667
-	h1   = 0xbb67ae85
-	h2   = 0x3c6ef372
-	h3   = 0xa54ff53a
-	h4   = 0x510e527f
-	h5   = 0x9b05688c
-	h6   = 0x1f83d9ab
-	h7   = 0x5be0cd19
-	zero = 0x0
-	one  = 0x1
+	h0                 = 0x6a09e667
+	h1                 = 0xbb67ae85
+	h2                 = 0x3c6ef372
+	h3                 = 0xa54ff53a
+	h4                 = 0x510e527f
+	h5                 = 0x9b05688c
+	h6                 = 0x1f83d9ab
+	h7                 = 0x5be0cd19
+	BYTE_SIZE          = 8
+	CHUNK_SIZE         = 512
+	SIZE_BEFORE_LENGTH = 448
 )
 
 var initValues [8]uint32
@@ -35,25 +36,30 @@ var k = [64]uint32{
 }
 
 // create message array
-func preprocessing(message string) []byte {
-	msg := []byte{}
-	for _, c := range message {
-		msg = append(msg, byte(c))
-	}
-	msg_len := byte(len(msg))
-	msg = append(msg, one)
+func preprocessing(msg []byte) []byte {
 
-	num_0 := (64 - len(msg)%64) - 1
+	msg_len := len(msg) * BYTE_SIZE
+	len := uint64(len(msg))
 
-	for i := 0; i < num_0; i++ {
-		msg = append(msg, zero)
+	//msg_len := byte(len(msg))
+	msg = append(msg, (0x80 >> 7))
+
+	for i := msg_len; i%CHUNK_SIZE != SIZE_BEFORE_LENGTH; i += BYTE_SIZE {
+		msg = append(msg, 0x00)
 	}
-	msg = append(msg, msg_len)
+
+	len <<= 3
+	for i := uint(0); i < 8; i++ {
+		msg = append(msg, byte(len>>(56-8*i)))
+	}
+
+	fmt.Printf("Msg: %x\n", msg)
 	return msg
 }
 
 func delegateChunks(message []byte) []uint32 {
 	num_chunks := len(message) / 64
+	fmt.Println("Num chunks: ", num_chunks)
 	comm = make(chan bool, num_chunks)
 	hashValueArray = make([]chan uint32, 8)
 	for i := 0; i < 8; i++ {
@@ -146,7 +152,7 @@ func setup() {
 
 func Hash(msg string) []uint32 {
 	setup()
-	msg_p := preprocessing(msg)
+	msg_p := preprocessing([]byte(msg))
 	return delegateChunks(msg_p)
 }
 
@@ -165,6 +171,8 @@ func main() {
 	result := Hash(toHash)
 	elapsed := time.Since(start)
 
-	PrintHash(result)
+	fmt.Printf("Hash: %x\n", result)
+
+	//PrintHash(result)
 	fmt.Println("took ", elapsed)
 }
