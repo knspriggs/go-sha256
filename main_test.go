@@ -7,24 +7,6 @@ import (
 	"time"
 )
 
-func TestPreProcessing(t *testing.T) {
-	msg := ""
-	msg_t := preprocessing([]byte(msg))
-	exp := []byte{
-		80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	}
-	if msg_t == nil {
-		t.Error("Nil returned")
-	}
-
-	for i := 0; i < len(msg_t); i++ {
-		if msg_t[i] != exp[i] {
-			t.Error("Actual does not match expected")
-		}
-	}
-}
-
 func TestEmptyString(t *testing.T) {
 	fmt.Println("Kristian's Library:")
 
@@ -40,18 +22,19 @@ func TestEmptyString(t *testing.T) {
 }
 
 func TestStringLessThan64(t *testing.T) {
-	toHash := "hello"
+	toHash := "a"
 
 	start := time.Now()
 	result := Hash(toHash)
 	elapsed := time.Since(start)
 
 	fmt.Printf("(2): ")
-	PrintHash(result)
+	//PrintHash(result)
+	fmt.Printf("%x\n", result)
 	fmt.Println("took ", elapsed, "\n")
 }
 
-func TestStringGreaterThan64(t *testing.T) {
+/*func TestStringGreaterThan64(t *testing.T) {
 	toHash := "this is a super long string that needs to break my program into using two seperate chunks for better testing, make sense?"
 
 	start := time.Now()
@@ -61,7 +44,7 @@ func TestStringGreaterThan64(t *testing.T) {
 	fmt.Printf("(3): ")
 	PrintHash(result)
 	fmt.Println("took ", elapsed, "\n")
-}
+}*/
 
 func TestEmptyStringLib(t *testing.T) {
 	fmt.Println("Standard Library:")
@@ -77,14 +60,14 @@ func TestEmptyStringLib(t *testing.T) {
 func TestStringLessThan64Lib(t *testing.T) {
 	start := time.Now()
 	hasher := sha256.New()
-	hasher.Write([]byte("hello"))
+	hasher.Write([]byte("a"))
 	result := hasher.Sum(nil)
 	elapsed := time.Since(start)
 	fmt.Printf("(2): %x\n", result)
 	fmt.Println("took ", elapsed, "\n")
 }
 
-func TestStringGreaterThan64Lib(t *testing.T) {
+/*func TestStringGreaterThan64Lib(t *testing.T) {
 	toHash := "this is a super long string that needs to break my program into using two seperate chunks for better testing, make sense?"
 
 	start := time.Now()
@@ -94,4 +77,4 @@ func TestStringGreaterThan64Lib(t *testing.T) {
 	elapsed := time.Since(start)
 	fmt.Printf("(3): %x\n", result)
 	fmt.Println("took ", elapsed, "\n")
-}
+}*/

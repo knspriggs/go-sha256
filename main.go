@@ -23,7 +23,7 @@ const (
 
 var initValues [8]uint32
 
-var hashValueArray []chan uint32
+var currentHashValues [8]uint32
 var comm chan bool
 
 var k = [64]uint32{
@@ -51,37 +51,26 @@ func preprocessing(msg []byte) []byte {
 	for _, b := range buf.Bytes() {
 		msg = append(msg, b)
 	}
+	for _, val := range msg {
+		fmt.Printf("%x ", val)
+	}
 	return msg
 }
 
-func delegateChunks(message []byte) []uint32 {
+func delegateChunks(message []byte) [8]uint32 {
 	num_chunks := len(message) / 64
 	fmt.Println("Num chunks: ", num_chunks)
-	comm = make(chan bool, num_chunks)
-	hashValueArray = make([]chan uint32, 8)
-	for i := 0; i < 8; i++ {
-		hashValueArray[i] = make(chan uint32, 10)
-	}
 
-	//go and process each chunk concurrently
+	//process each chunk
 	for i := 0; i < num_chunks; i++ {
-		go processChunk(message[i*64:64+i*64], i)
+		processChunk(message[i*64:64+i*64], i)
 	}
-
-	//wait for all chunk processing functions to finish
-	for i := 0; i < num_chunks; i++ {
-		<-comm
-	}
-
-	//close the channels
-	for i := 0; i < 8; i++ {
-		close(hashValueArray[i])
-	}
-	return combineValues()
+	return currentHashValues
 }
 
 // process each chunk
 func processChunk(chunk []byte, n int) {
+	fmt.Println("Running chunk ", n, " len: ", len(chunk))
 	var w [64]uint32
 	for i := 0; i < 16; i++ {
 		j := i * 4
@@ -119,42 +108,29 @@ func processChunk(chunk []byte, n int) {
 		a = s0 + s1
 	}
 
-	hashValueArray[0] <- a
-	hashValueArray[1] <- b
-	hashValueArray[2] <- c
-	hashValueArray[3] <- d
-	hashValueArray[4] <- e
-	hashValueArray[5] <- f
-	hashValueArray[6] <- g
-	hashValueArray[7] <- h
-	comm <- true
-}
-
-func combineValues() []uint32 {
-	res := [8]uint32{0, 0, 0, 0, 0, 0, 0, 0}
-	var result []uint32
-	for i := 0; i < 8; i++ {
-		for v := range hashValueArray[i] {
-			res[i] += v
-		}
-	}
-	for i := 0; i < 8; i++ {
-		result = append(result, res[i])
-	}
-	return result
+	currentHashValues[0] += a
+	currentHashValues[1] += b
+	currentHashValues[2] += c
+	currentHashValues[3] += d
+	currentHashValues[4] += e
+	currentHashValues[5] += f
+	currentHashValues[6] += g
+	currentHashValues[7] += h
 }
 
 func setup() {
 	initValues[0], initValues[1], initValues[2], initValues[3], initValues[4], initValues[5], initValues[6], initValues[7] = h0, h1, h2, h3, h4, h5, h6, h7
+	currentHashValues[0], currentHashValues[1], currentHashValues[2], currentHashValues[3] = h0, h1, h2, h3
+	currentHashValues[4], currentHashValues[5], currentHashValues[6], currentHashValues[7] = h4, h5, h6, h7
 }
 
-func Hash(msg string) []uint32 {
+func Hash(msg string) [8]uint32 {
 	setup()
 	msg_p := preprocessing([]byte(msg))
 	return delegateChunks(msg_p)
 }
 
-func PrintHash(ar []uint32) {
+func PrintHash(ar [8]uint32) {
 	for i := 0; i < len(ar); i++ {
 		fmt.Printf("%x", ar[i])
 	}
