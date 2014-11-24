@@ -84,7 +84,7 @@ func delegateChunks(message []byte) []uint32 {
 func processChunk(chunk []byte, n int) {
 	var w [64]uint32
 	for i := 0; i < 16; i++ {
-		w[i] = uint32(chunk[i])
+		w[i] = uint32(chunk[i]<<24 | chunk[i+1]<<16 | chunk[i+2]<<8 | chunk[i+3])
 	}
 
 	for i := 16; i < 64; i++ {
@@ -150,11 +150,6 @@ func setup() {
 func Hash(msg string) []uint32 {
 	setup()
 	msg_p := preprocessing([]byte(msg))
-	fmt.Println("")
-	for i := 0; i < len(msg_p); i++ {
-		fmt.Printf("%x", msg_p[i])
-	}
-	fmt.Println("")
 	return delegateChunks(msg_p)
 }
 
