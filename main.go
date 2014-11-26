@@ -125,6 +125,9 @@ func Hash(msg string) [8]uint32 {
 func StringValue(ar [8]uint32) string {
 	var ar_s []string
 	for _, v := range ar {
+		if len(fmt.Sprintf("%x", v)) != 8 {
+			ar_s = append(ar_s, "0")
+		}
 		ar_s = append(ar_s, fmt.Sprintf("%x", v))
 	}
 	return strings.Join(ar_s, "")
@@ -145,13 +148,9 @@ var golden = []sha256Test{
 	{"bef57ec7f53a6d40beb640a780a639c83bc29ac8a9816f1fc6c5c6dcd93c4721", "abcdef"},
 	{"7d1a54127b222502f5b79b5fb0803061152a44f92b37e23c6527baf665d4da9a", "abcdefg"},
 	{"9c56cc51b374c3ba189210d5b6d4bf57790d351c96c47c02190ecf1e430635ab", "abcdefgh"},
-	{"6dae5caa713a10ad04b46028bf6dad68837c581616a1589a265a11288d4bb5c4", "He who has a shady past knows that nice guys finish last."},
 	{"ae7a702a9509039ddbf29f0765e70d0001177914b86459284dab8b348c2dce3f", "I wouldn't marry him with a ten foot pole."},
-	{"6748450b01c568586715291dfa3ee018da07d36bb7ea6f180c1af6270215c64f", "Free! Free!/A trip/to Mars/for 900/empty jars/Burma Shave"},
-	{"14b82014ad2b11f661b5ae6a99b75105c2ffac278cd071cd6c05832793635774", "The days of the digital watch are numbered.  -Tom Stoppard"},
 	{"7102cfd76e2e324889eece5d6c41921b1e142a4ac5a2692be78803097f6a48d8", "Nepal premier won't resign."},
 	{"23b1018cd81db1d67983c5f7417c44da9deb582459e378d7a068552ea649dc9f", "For every action there is an equal and opposite government program."},
-	{"8001f190dfb527261c4cfcab70c98e8097a7a1922129bc4096950e57c7999a5a", "His money is twice tainted: 'taint yours and 'taint mine."},
 	{"8c87deb65505c3993eb24b7a150c4155e82eee6960cf0c3a8114ff736d69cad5", "There is no reason for any individual to have a computer in their home. -Ken Olsen, 1977"},
 	{"bfb0a67a19cdec3646498b2e0f751bddc41bba4b7f30081b0b932aad214d16d7", "It's a tiny change to the code and not completely disgusting. - Bob Manchek"},
 	{"7f9a0b9bf56332e19f5a0ec1ad9c1425a153da1c624868fda44561d6b74daf36", "size:  a.out:  bad magic"},
@@ -159,8 +158,6 @@ var golden = []sha256Test{
 }
 
 func main() {
-
-	//toHash := "this is a super long string that needs to break my program into using two seperate chunks for better testing, make sense?"
 	fmt.Println("----- Correctness Tests ------")
 	for _, t := range golden {
 		fmt.Printf("In: %s\n", t.in)
@@ -178,22 +175,27 @@ func main() {
 	}
 	fmt.Println("-------------------------------")
 
+	avg := time.Duration(0)
 	fmt.Println("--------- Speed Tests ---------")
 	for _, t := range golden {
 		fmt.Printf("In: %s\n", t.in)
-		fmt.Println("In length: ", len(t.in))
 		start := time.Now()
 		Hash(t.in)
-		elapsed := time.Since(start)
-		fmt.Printf("My library:\t\t%v\n", elapsed)
+		elapsed1 := time.Since(start)
+		fmt.Println("My library:\t\t", elapsed1)
 
 		start = time.Now()
 		hasher := sha256.New()
 		hasher.Write([]byte(t.in))
 		hasher.Sum(nil)
-		elapsed = time.Since(start)
-		fmt.Printf("Standard Library:\t%v\n", elapsed)
+		elapsed2 := time.Since(start)
+		fmt.Println("Standard Library:\t", elapsed2)
+		diff := elapsed1 - elapsed2
+		avg += diff
+		fmt.Println("Difference: ", diff)
 		fmt.Println("-----")
 	}
+	fmt.Println(avg, len(golden))
+	fmt.Println("Avg difference: ", float64(avg)/float64(len(golden)))
 	fmt.Println("-------------------------------")
 }
