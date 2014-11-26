@@ -175,7 +175,6 @@ func main() {
 	}
 	fmt.Println("-------------------------------")
 
-	avg := time.Duration(0)
 	fmt.Println("--------- Speed Tests ---------")
 	for _, t := range golden {
 		fmt.Printf("In: %s\n", t.in)
@@ -190,12 +189,7 @@ func main() {
 		hasher.Sum(nil)
 		elapsed2 := time.Since(start)
 		fmt.Println("Standard Library:\t", elapsed2)
-		diff := elapsed1 - elapsed2
-		avg += diff
-		fmt.Println("Difference: ", diff)
 		fmt.Println("-----")
 	}
-	fmt.Println(avg, len(golden))
-	fmt.Println("Avg difference: ", float64(avg)/float64(len(golden)))
 	fmt.Println("-------------------------------")
 }
